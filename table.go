@@ -6,7 +6,11 @@
 package airtable
 
 import (
+	"fmt"
+	"net/http"
 	"net/url"
+
+	"github.com/HMasataka/airtable/payload"
 )
 
 // Records base type of airtable records.
@@ -26,6 +30,34 @@ type Table struct {
 	client    *Client
 	dbName    string
 	tableName string
+}
+
+// GetTable return table object.
+func (c *Client) ListTables(dbName string) ([]*Table, error) {
+	c.rateLimit()
+
+	url := fmt.Sprintf("%s/meta/bases/%s/tables", c.baseURL, dbName)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+
+	var tables payload.Tables
+	err = c.do(req, &tables)
+	if err != nil {
+		return nil, fmt.Errorf("cannot execution request: %w", err)
+	}
+	var response []*Table
+	for _, t := range tables.Tables {
+		response = append(response, &Table{
+			client:    c,
+			dbName:    dbName,
+			tableName: t.Name,
+		})
+	}
+	return response, nil
 }
 
 // GetTable return table object.
